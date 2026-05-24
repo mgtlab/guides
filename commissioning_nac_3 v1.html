@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NAC-3 Autopilot Commissioning Guide</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts for Clean Tech look -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Deep Ocean Tech (Navy Blue, Marine Cyan, Emerald Green, Alert Red, Neutral Light Slate) -->
+    <!-- Application Structure Plan: 
+         Μια μονοσέλιδη εφαρμογή (SPA) με δομή Wizard / Tabbed Panel, ιδανική για κινητά τηλέφωνα. 
+         Αντί για ατελείωτο scroll, ο τεχνικός πλοηγείται εύκολα μέσω ενός Sticky Bottom Navigation Bar (στο κινητό) ή Sidebar (στο tablet/desktop).
+         Περιέχει:
+         1. Αρχική (Εισαγωγή)
+         2. Προκαταρκτικός Έλεγχος (Με διαδραστική προσομοίωση των LED πολικότητας)
+         3. Ρυθμίσεις Λιμανιού / Dockside (Με διαδραστική βαθμονόμηση τιμονιού)
+         4. Δοκιμή στη Θάλασσα / Sea Trial (Με προσομοιωτή περιστροφής πυξίδας)
+         5. Χειροκίνητος Συντονισμός / Tuning (Με δυναμικό γράφημα Chart.js)
+         6. Λίστα Παράδοσης (Διαδραστικό Dashboard προόδου)
+    -->
+    <!-- Visualization & Content Choices:
+         - Πρόοδος Εργασιών -> Στόχος: Ενημέρωση -> Doughnut Chart (Chart.js) στο Dashboard για άμεση οπτικοποίηση της ετοιμότητας.
+         - Απόκριση Τιμονιού (Gain) -> Στόχος: Σύγκριση/Κατανόηση -> Line Chart (Chart.js) που δείχνει τη διαφορά μεταξύ Under-steering, Over-steering και Ιδανικής πλεύσης.
+         - Προσομοιώσεις -> Στόχος: Εκπαίδευση -> HTML/CSS διαδραστικά στοιχεία (κουμπιά, εικονικά LED, περιστρεφόμενα div) για να 'ζωντανέψουν' οι οδηγίες του εγχειριδίου χωρίς SVG.
+         ΕΠΙΒΕΒΑΙΩΣΗ: Δεν χρησιμοποιούνται SVG γραφικά ή Mermaid JS.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 280px;
+            max-height: 320px;
+        }
+        /* Custom scrollbar to keep it clean */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        /* Active Navigation state styling */
+        .active-tab {
+            background-color: #0f172a !important;
+            color: #38bdf8 !important;
+            border-color: #38bdf8 !important;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- TOP HEADER -->
+    <header class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between border-b border-slate-800 flex-shrink-0 z-10">
+        <div class="flex items-center space-x-2">
+            <span class="text-xl">⚓</span>
+            <div>
+                <h1 class="font-bold text-sm sm:text-base tracking-tight text-sky-400">NAC-3 COMMISSIONING</h1>
+                <p class="text-[10px] text-slate-400 font-medium tracking-wider uppercase">MARINE TECH SYSTEMS v1.4</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+            <span class="text-xs text-slate-400">Πρόοδος:</span>
+            <span id="top-progress-text" class="text-xs font-bold text-emerald-400">0%</span>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- SIDEBAR FOR DESKTOP -->
+        <aside class="hidden md:flex flex-col w-64 bg-slate-950 border-r border-slate-800 p-4 justify-between flex-shrink-0">
+            <div class="space-y-1">
+                <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 px-3">ΒΗΜΑΤΑ COMMISSIONING</p>
+                <button onclick="changeSection('intro')" id="btn-side-intro" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>🏠</span> <span>Εισαγωγή</span>
+                </button>
+                <button onclick="changeSection('precheck')" id="btn-side-precheck" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>⚡</span> <span>1. Προκαταρκτικός Έλεγχος</span>
+                </button>
+                <button onclick="changeSection('dockside')" id="btn-side-dockside" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>⛵</span> <span>2. Ρυθμίσεις Λιμανιού</span>
+                </button>
+                <button onclick="changeSection('seatrial')" id="btn-side-seatrial" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>🌊</span> <span>3. Δοκιμή στη Θάλασσα</span>
+                </button>
+                <button onclick="changeSection('tuning')" id="btn-side-tuning" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>⚙️</span> <span>4. Χειροκίνητος Συντονισμός</span>
+                </button>
+                <button onclick="changeSection('checklist')" id="btn-side-checklist" class="w-full flex items-center space-x-3 text-left px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-900 transition-all font-medium">
+                    <span>📋</span> <span>5. Λίστα Παράδοσης</span>
+                </button>
+            </div>
+            
+            <div class="bg-slate-900 p-3 rounded-lg border border-slate-800">
+                <span class="text-[10px] text-slate-500 font-bold block mb-1">ΤΕΧΝΙΚΗ ΥΠΟΣΤΗΡΙΞΗ</span>
+                <span class="text-xs text-sky-400 font-medium">B&G / Simrad Navico Group</span>
+            </div>
+        </aside>
+
+        <!-- MAIN DYNAMIC CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50">
+            <div class="max-w-3xl mx-auto space-y-6 pb-24 md:pb-6">
+                
+                <!-- SECTION: INTRO -->
+                <section id="sec-intro" class="space-y-6">
+                    <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden">
+                        <div class="absolute -right-10 -bottom-10 text-9xl opacity-5 pointer-events-none select-none">⚓</div>
+                        <span class="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs px-2.5 py-1 rounded-full font-semibold inline-block mb-3">ΕΠΙΣΗΜΟΣ ΟΔΗΓΟΣ v1.4</span>
+                        <h2 class="text-xl sm:text-2xl font-bold leading-tight">Διαδραστικός Οδηγός Θέσης σε Λειτουργία NAC-3</h2>
+                        <p class="text-slate-300 text-sm mt-2 leading-relaxed">
+                            Καλώς ορίσατε στην ψηφιακή πλατφόρμα καθοδήγησης για τον αυτόματο πιλότο NAC-3. Σχεδιασμένο ειδικά για smartphone, αυτό το εργαλείο βοηθά τον τεχνικό πεδίου να εκτελέσει με απόλυτη ακρίβεια τις επίσημες διαδικασίες Dockside Setup και Sea Trial, χωρίς εικασίες.
+                        </p>
+                        <div class="mt-4 pt-4 border-t border-slate-800 flex items-center space-x-3">
+                            <span class="text-xs text-slate-400">Συμβατότητα:</span>
+                            <span class="text-xs bg-slate-800 px-2 py-0.5 rounded text-sky-300 border border-slate-700 font-mono">Firmware v1.1+</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                            <span class="text-sky-500">📍</span> Πώς να χρησιμοποιήσετε τον οδηγό:
+                        </h3>
+                        <p class="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                            Ακολουθήστε τα βήματα με τη σειρά. Κάθε ενότητα περιέχει ζωντανές δοκιμές και προσομοιώσεις για να επαληθεύσετε την ορθή λειτουργία του συστήματος. Στο τέλος, συμπληρώστε την <strong>Λίστα Παράδοσης</strong> για να διασφαλίσετε ότι όλες οι ρυθμίσεις έχουν αποθηκευτεί σωστά.
+                        </p>
+                        <button onclick="changeSection('precheck')" class="w-full bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white text-xs sm:text-sm font-semibold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center space-x-2">
+                            <span>Ξεκινήστε τον Έλεγχο</span> <span>➔</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <span class="text-lg block mb-1">⛵</span>
+                            <span class="text-xs text-slate-500 block">Στάδιο Α</span>
+                            <span class="text-xs sm:text-sm font-bold text-slate-800">Dockside Setup</span>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-200">
+                            <span class="text-lg block mb-1">🌊</span>
+                            <span class="text-xs text-slate-500 block">Στάδιο Β</span>
+                            <span class="text-xs sm:text-sm font-bold text-slate-800">Sea Trial</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: 1. PRE-COMMISSIONING -->
+                <section id="sec-precheck" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <span class="text-xl">⚡</span>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">1. Προκαταρκτικός Ηλεκτρολογικός Έλεγχος</h2>
+                        </div>
+                        <p class="text-slate-500 text-xs leading-relaxed mb-4">
+                            Πριν από οποιαδήποτε ενεργοποίηση της οθόνης (MFD) ή του οργάνου ελέγχου (AP44/AP48/Triton 2), πρέπει να εκτελεστούν οι παρακάτω φυσικοί και ηλεκτρικοί έλεγχοι.
+                        </p>
+                        
+                        <div class="space-y-3">
+                            <!-- Step Card 1 -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                                <span class="font-bold text-slate-800 block mb-1">1. Γείωση Θωράκισης (Chassis Grounding)</span>
+                                <span class="text-slate-600">Συνδέστε τον ακροδέκτη γείωσης του σασί του NAC-3 απευθείας στη γείωση του σκάφους (GND/Dynaplate). Αυτό αποτρέπει ηλεκτροστατικά φορτία και γαλβανικές παρεμβολές.</span>
+                            </div>
+
+                            <!-- Step Card 2 - Interactive -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs space-y-3">
+                                <span class="font-bold text-slate-800 block">2. Έλεγχος Πολικότητας Τροφοδοσίας (LED Simulator)</span>
+                                <p class="text-slate-600">Ακολουθήστε τη διαδραστική προσομοίωση παρακάτω για να επιβεβαιώσετε την ασφαλή σύνδεση της τροφοδοσίας:</p>
+                                
+                                <div class="bg-slate-900 text-white p-4 rounded-lg space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-[11px] font-bold text-slate-400">ΕΙΚΟΝΙΚΟΣ ΕΓΚΕΦΑΛΟΣ NAC-3</span>
+                                        <span class="text-[9px] bg-slate-800 px-2 py-0.5 rounded text-amber-400 border border-slate-700">LED PANEL</span>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-around py-2">
+                                        <div class="text-center">
+                                            <div id="led-polarity" class="w-6 h-6 rounded-full bg-slate-700 shadow-inner mx-auto mb-1 transition-all duration-300"></div>
+                                            <span class="text-[10px] text-slate-400">Polarity LED</span>
+                                        </div>
+                                        <div class="text-center">
+                                            <div id="led-fuse" class="w-10 h-6 bg-slate-800 border-2 border-slate-600 rounded flex items-center justify-center font-bold text-[10px] mx-auto mb-1 text-slate-500">OFF</div>
+                                            <span class="text-[10px] text-slate-400">Ασφάλεια 30A</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+                                        <button onclick="simulateLED('removeFuse')" id="btn-fuse-step" class="bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white text-[10px] py-2 px-2 rounded font-medium transition-all">
+                                            1. Αφαίρεση Ασφάλειας 30Α
+                                        </button>
+                                        <button onclick="simulateLED('togglePower')" id="btn-power-step" disabled class="bg-slate-700 text-slate-400 text-[10px] py-2 px-2 rounded font-medium transition-all cursor-not-allowed">
+                                            2. On Ασφαλειοδιακόπτη
+                                        </button>
+                                        <button onclick="simulateLED('insertFuse')" id="btn-insert-step" disabled class="bg-slate-700 text-slate-400 text-[10px] py-2 px-2 rounded font-medium transition-all cursor-not-allowed">
+                                            3. Τοποθέτηση Ασφάλειας
+                                        </button>
+                                    </div>
+                                    <div id="sim-status" class="bg-slate-950 p-2 rounded text-[10px] text-amber-400 font-mono text-center border border-slate-800">
+                                        Αναμονή έναρξης ελέγχου...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step Card 3 -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                                <span class="font-bold text-slate-800 block mb-1">3. Έλεγχος Δικτύου NMEA 2000 (Micro-C Backbone)</span>
+                                <ul class="list-disc pl-4 space-y-1 text-slate-600">
+                                    <li>Βεβαιωθείτε ότι το δίκτυο NMEA 2000 είναι σωστά τερματισμένο με δύο τερματικές αντιστάσεις $120\ \Omega$ (Terminators) στα άκρα του.</li>
+                                    <li>Ο NAC-3 πρέπει να είναι συνδεδεμένος στο δίκτυο μέσω Micro-C Drop Cable (μέγιστου μήκους $6\text{ m}$).</li>
+                                </ul>
+                            </div>
+
+                            <!-- Step Card 4 -->
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                                <span class="font-bold text-slate-800 block mb-1">4. Έλεγχος Μονάδας Οδήγησης (Drive Unit)</span>
+                                <span class="text-slate-600">Επιβεβαιώστε ότι η μονάδα οδήγησης (υδραυλική αντλία, μηχανικός γραμμικός βραχίονας ή ηλεκτροβάνες) είναι συμβατή με τα όρια ρεύματος του NAC-3 ($30\text{ A}$ συνεχή λειτουργία / $50\text{ A}$ μέγιστο φορτίο αιχμής).</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-4 border-t border-slate-200 flex justify-between">
+                            <button onclick="changeSection('intro')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Πίσω</button>
+                            <button onclick="changeSection('dockside')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all">Επόμενο ⛵</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: 2. DOCKSIDE SETUP -->
+                <section id="sec-dockside" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <span class="text-xl">⛵</span>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">2. Στάδιο Α: Ρυθμίσεις στο Λιμάνι</h2>
+                        </div>
+                        <p class="text-slate-500 text-xs leading-relaxed mb-4">
+                            Όλες οι ρυθμίσεις αυτού του σταδίου πρέπει να πραγματοποιηθούν με το σκάφος δεμένο με ασφάλεια στο λιμάνι και τον αυτόματο πιλότο σε κατάσταση αναμονής (<strong class="text-slate-700">Standby</strong>).
+                        </p>
+
+                        <div class="space-y-4">
+                            <!-- Step A.1 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Α.1: Επιλογή Πηγών Δεδομένων (Data Source Selection)</span>
+                                <p class="text-slate-600">Το σύστημα πρέπει να γνωρίζει από ποιες συσκευές θα λαμβάνει δεδομένα πορείας (Heading), γωνίας τιμονιού (Rudder Feedback), ταχύτητας (Speed) και θέσης (Position).</p>
+                                <div class="bg-white p-2.5 rounded border border-slate-200 space-y-1">
+                                    <p class="font-mono text-[11px] text-slate-700">1. Μενού: <strong class="text-sky-600">Settings > Network > Sources</strong></p>
+                                    <p class="font-mono text-[11px] text-slate-700">2. Επιλογή: <strong class="text-sky-600">Auto Select</strong></p>
+                                    <p class="font-mono text-[11px] text-slate-700 text-amber-600">3. Επαλήθευση: Heading -> Precision-9 | Rudder -> RF25N (αν υπάρχει)</p>
+                                </div>
+                            </div>
+
+                            <!-- Step A.2 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Α.2: Χαρακτηριστικά Σκάφους (Boat Characteristics)</span>
+                                <div class="bg-white p-2.5 rounded border border-slate-200 space-y-2">
+                                    <p class="font-mono text-[11px] text-slate-700">Μενού: <strong class="text-sky-600">Settings > Autopilot > Installation > Dockside > Boat characteristics</strong></p>
+                                    <div class="grid grid-cols-2 gap-2 text-[10px]">
+                                        <div class="bg-slate-50 p-1.5 rounded">
+                                            <span class="text-slate-400 block">Vessel Type</span>
+                                            <span class="font-bold">Sail / Displacement / Planing</span>
+                                        </div>
+                                        <div class="bg-slate-50 p-1.5 rounded">
+                                            <span class="text-slate-400 block">Drive Voltage</span>
+                                            <span class="font-bold text-red-600">12V / 24V (Προσοχή!)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step A.3 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Α.3: Ρύθμιση Μονάδας Οδήγησης (Drive Configuration)</span>
+                                <div class="grid grid-cols-2 gap-2 text-[11px] bg-white p-2.5 rounded border border-slate-200">
+                                    <div>
+                                        <span class="font-semibold block text-slate-700">Drive Type:</span>
+                                        <span class="text-slate-500">• Reversible motor</span>
+                                        <span class="text-slate-500 block">• Solenoid</span>
+                                    </div>
+                                    <div>
+                                        <span class="font-semibold block text-slate-700">Clutch:</span>
+                                        <span class="text-slate-500">• Auto (με συμπλέκτη)</span>
+                                        <span class="text-slate-500 block">• Manual</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step A.4 - Interactive Rudder Calibration -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-3">
+                                <span class="font-bold text-slate-800 block">Βήμα Α.4: Βαθμονόμηση Αισθητήρα Τιμονιού (Rudder Calibration)</span>
+                                <p class="text-slate-600">Χρησιμοποιήστε το διαδραστικό πηδάλιο για να ολοκληρώσετε τα βήματα βαθμονόμησης:</p>
+                                
+                                <div class="bg-slate-900 text-white p-4 rounded-xl space-y-4 text-center">
+                                    <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Εξομοιωτής Βαθμονόμησης Τιμονιού</div>
+                                    
+                                    <!-- Visual Rudder Indicator -->
+                                    <div class="relative w-24 h-24 bg-slate-800 rounded-full mx-auto flex items-center justify-center border-4 border-slate-700 overflow-hidden shadow-lg">
+                                        <!-- Rudder Line -->
+                                        <div id="rudder-blade" class="w-2 h-16 bg-sky-400 rounded-full transition-all duration-300 origin-center" style="transform: rotate(0deg);"></div>
+                                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div id="rudder-angle-text" class="text-xs font-bold font-mono text-sky-400">Γωνία Τιμονιού: 0° (Κέντρο)</div>
+
+                                    <div class="grid grid-cols-3 gap-1.5 text-[10px]">
+                                        <button onclick="calibrateRudder('port')" id="btn-rud-port" class="bg-slate-800 hover:bg-slate-700 text-white py-1.5 rounded border border-slate-700 font-medium">
+                                            1. Turn Port & Set (-35°)
+                                        </button>
+                                        <button onclick="calibrateRudder('center')" id="btn-rud-center" class="bg-slate-800 hover:bg-slate-700 text-white py-1.5 rounded border border-slate-700 font-medium">
+                                            2. Align Center & Set
+                                        </button>
+                                        <button onclick="calibrateRudder('starboard')" id="btn-rud-stbd" class="bg-slate-800 hover:bg-slate-700 text-white py-1.5 rounded border border-slate-700 font-medium">
+                                            3. Turn Stbd & Set (+35°)
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="rudder-cal-status" class="bg-slate-950 p-2 rounded text-[10px] text-amber-400 font-mono border border-slate-800">
+                                        Ευθυγραμμίστε το τιμόνι στο κέντρο και πατήστε 'Align Center'
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step A.5 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Α.5: Έλεγχος Τιμονιού (Rudder Test)</span>
+                                <p class="text-slate-600">Μενού: <em>Dockside > Rudder Test</em>. Ο αυτόματος πιλότος θα αναλάβει τον έλεγχο και θα μετακινήσει το τιμόνι αριστερά-δεξιά για να επαληθεύσει την πολικότητα.</p>
+                                <div class="bg-amber-50 text-amber-800 p-2.5 rounded border border-amber-200">
+                                    🚨 <strong>Προσοχή:</strong> Βεβαιωθείτε ότι δεν υπάρχουν εμπόδια γύρω από το πηδάλιο ή τις μηχανές και ότι το σκάφος είναι καλά δεμένο.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-4 border-t border-slate-200 flex justify-between">
+                            <button onclick="changeSection('precheck')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Πίσω</button>
+                            <button onclick="changeSection('seatrial')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all">Επόμενο 🌊</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: 3. SEA TRIAL -->
+                <section id="sec-seatrial" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <span class="text-xl">🌊</span>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">3. Στάδιο Β: Δοκιμή στη Θάλασσα</h2>
+                        </div>
+                        <p class="text-slate-500 text-xs leading-relaxed mb-4">
+                            Πραγματοποιήστε τη δοκιμή σε ανοιχτή θάλασσα, με ήπιες καιρικές συνθήκες, σε ασφαλή απόσταση από την ξηρά και άλλα σκάφη.
+                        </p>
+
+                        <div class="space-y-4">
+                            <!-- Step B.1 - Compass Calibration -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-3">
+                                <span class="font-bold text-slate-800 block">Βήμα Β.1: Βαθμονόμηση Πυξίδας Precision-9</span>
+                                <p class="text-slate-600">Μενού: <em>Network > Device list > Precision-9 > Calibrate</em>. Ξεκινήστε να στρίβετε το σκάφος αργά, εκτελώντας έναν πλήρη κύκλο τουλάχιστον 390° έως 450°.</p>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-white p-3 rounded border border-slate-200 text-[11px] text-slate-700">
+                                    <div>• Ταχύτητα σκάφους: <strong class="text-sky-600">3-5 knots</strong></div>
+                                    <div>• Ρυθμός στροφής (ROT): <strong class="text-sky-600">2°-3°/sec</strong></div>
+                                    <div class="sm:col-span-2 text-amber-600 font-semibold">• Επιτρεπτό όριο απόκλισης: < 5°. (Αν είναι > 10° η βαθμονόμηση απέτυχε).</div>
+                                </div>
+
+                                <div class="bg-slate-900 text-white p-4 rounded-xl space-y-4 text-center">
+                                    <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Προσομοιωτής Περιστροφής (Compass Calibration)</div>
+                                    
+                                    <div class="relative w-24 h-24 rounded-full bg-slate-800 mx-auto flex items-center justify-center border-4 border-slate-700 shadow-lg">
+                                        <!-- Compass Dial -->
+                                        <div id="compass-dial" class="absolute inset-0 rounded-full flex items-center justify-center transition-all duration-200" style="transform: rotate(0deg);">
+                                            <span class="absolute top-1 text-[10px] font-bold text-red-500">N</span>
+                                            <span class="absolute right-1 text-[10px] font-bold text-slate-400">E</span>
+                                            <span class="absolute bottom-1 text-[10px] font-bold text-slate-400">S</span>
+                                            <span class="absolute left-1 text-[10px] font-bold text-slate-400">W</span>
+                                        </div>
+                                        <div class="absolute inset-x-0 top-0 mx-auto w-1 h-3 bg-red-600 z-10"></div>
+                                    </div>
+                                    
+                                    <div id="compass-status" class="text-xs font-bold font-mono text-sky-400">Heading: 000°</div>
+
+                                    <button onclick="startCompassSimulation()" id="btn-compass-sim" class="bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold py-2 px-4 rounded transition-all inline-block">
+                                        Έναρξη Εικονικής Στροφής 360°
+                                    </button>
+                                    
+                                    <div id="compass-result" class="bg-slate-950 p-2 rounded text-[10px] text-amber-400 font-mono border border-slate-800">
+                                        Πατήστε το κουμπί για να ξεκινήσει ο κύκλος βαθμονόμησης.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step B.2 & B.3 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Β.2 & Β.3: Μηδενισμός Τιμονιού & Καταγραφή Ρυθμού Στροφής</span>
+                                <p class="text-slate-600">Ταξιδέψτε σε ευθεία πορεία με ταχύτητα κρουαζιέρας.</p>
+                                <div class="bg-white p-3 rounded border border-slate-200 space-y-1">
+                                    <p class="font-mono text-[11px] text-slate-700">1. Μενού: <strong class="text-sky-600">Settings > Autopilot > Installation > Sea Trial > Set rudder zero</strong></p>
+                                    <p class="font-mono text-[11px] text-slate-700">2. Επιλέξτε: <strong class="text-sky-600">Set turn rate</strong> (εκτελέστε μια άνετη χειροκίνητη στροφή).</p>
+                                </div>
+                            </div>
+
+                            <!-- Step B.4 -->
+                            <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-2">
+                                <span class="font-bold text-slate-800 block">Βήμα Β.4: Αυτόματος Συντονισμός (Autotuning)</span>
+                                <p class="text-slate-600">Φέρετε το σκάφος σε σταθερή ταχύτητα πλεύσης (cruising speed, συνήθως 5-10 knots).</p>
+                                <div class="bg-white p-3 rounded border border-slate-200 text-slate-600 space-y-1">
+                                    <p class="font-mono text-[11px] text-slate-700">1. Μενού: <strong class="text-sky-600">Sea Trial > Autotune</strong></p>
+                                    <p class="font-mono text-[11px] text-slate-700">2. Ενεργοποιήστε το. Ο πιλότος θα εκτελέσει ελιγμούς "S" για 2-3 λεπτά.</p>
+                                    <p class="text-red-600 font-semibold text-[10px] pt-1">🚨 ΠΡΟΣΟΧΗ: Μην αγγίζετε το τιμόνι! Πατήστε Standby αν χρειαστεί άμεση ακύρωση.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-4 border-t border-slate-200 flex justify-between">
+                            <button onclick="changeSection('dockside')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Πίσω</button>
+                            <button onclick="changeSection('tuning')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all">Επόμενο ⚙️</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: 4. MANUAL TUNING -->
+                <section id="sec-tuning" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <span class="text-xl">⚙️</span>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">4. Χειροκίνητος Συντονισμός (Manual Tuning)</h2>
+                        </div>
+                        <p class="text-slate-500 text-xs leading-relaxed mb-4">
+                            Εάν μετά τον αυτόματο συντονισμό η συμπεριφορά του σκάφους δεν είναι η ιδανική, μπορείτε να επέμβετε χειροκίνητα στις παραμέτρους (Low/High Speed) από το μενού <strong class="text-slate-700">Autopilot > Steering</strong>.
+                        </p>
+
+                        <!-- Dynamic Chart Integration -->
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                            <span class="font-bold text-slate-800 text-xs block">Δυναμική Ανάλυση Απόκρισης Τιμονιού (Gain & Counter Rudder)</span>
+                            
+                            <div class="chart-container">
+                                <canvas id="chart-tuning-pid"></canvas>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="selectTuningPreset('optimal')" class="bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold py-2 rounded shadow transition-all">
+                                    Optimal Path
+                                </button>
+                                <button onclick="selectTuningPreset('under')" class="bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold py-2 rounded shadow transition-all">
+                                    Under-Steer
+                                </button>
+                                <button onclick="selectTuningPreset('over')" class="bg-red-600 hover:bg-red-500 text-white text-[10px] font-bold py-2 rounded shadow transition-all">
+                                    Over-Steer
+                                </button>
+                            </div>
+
+                            <div id="tuning-explanation" class="bg-white p-3 rounded border border-slate-200 text-xs text-slate-700 leading-relaxed">
+                                Επιλέξτε ένα από τα παραπάνω προφίλ για να δείτε την επεξήγηση της πλεύσης και τις προτεινόμενες διορθώσεις.
+                            </div>
+                        </div>
+
+                        <!-- Info Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                                <span class="font-bold text-slate-800 block">Rudder Gain (Απόκριση Τιμονιού)</span>
+                                <span class="text-slate-600">Ελέγχει πόσο έντονα αντιδρά το τιμόνι. Αν το σκάφος κάνει αργές κινήσεις S αυξήστε το (+2-3 units). Αν κάνει νευρικά S (hunting) μειώστε το.</span>
+                            </div>
+                            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                                <span class="font-bold text-slate-800 block">Counter Rudder (Αντι-τιμόνι)</span>
+                                <span class="text-slate-600">Αποτρέπει την υπέρβαση (overshoot) της πορείας κατά τις αλλαγές κατεύθυνσης. Αυξήστε αν ξεπερνάει την πορεία, μειώστε αν αργεί πολύ να στρίψει.</span>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 pt-4 border-t border-slate-200 flex justify-between">
+                            <button onclick="changeSection('seatrial')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Πίσω</button>
+                            <button onclick="changeSection('checklist')" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold py-2 px-4 rounded-lg transition-all">Επόμενο 📋</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: 5. COMMISSIONING CHECKLIST -->
+                <section id="sec-checklist" class="hidden space-y-6">
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-5">
+                        <div class="flex items-center space-x-2 mb-3">
+                            <span class="text-xl">📋</span>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-800">5. Λίστα Ελέγχου Παράδοσης (Commissioning Checklist)</h2>
+                        </div>
+                        <p class="text-slate-500 text-xs leading-relaxed mb-4">
+                            Συμπληρώστε και επιβεβαιώστε τα παρακάτω στάδια για να ολοκληρωθεί η βαθμονόμηση του NAC-3.
+                        </p>
+
+                        <!-- Live Progress Widget -->
+                        <div class="bg-slate-900 text-white p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="text-center sm:text-left space-y-1">
+                                <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">ΣΥΝΟΛΙΚΗ ΠΡΟΟΔΟΣ</span>
+                                <div id="progress-val" class="text-2xl font-bold text-emerald-400">0%</div>
+                                <span id="progress-status" class="text-[11px] text-slate-300 block">Εκκρεμεί έναρξη...</span>
+                            </div>
+                            <!-- Small chart-container inside flex -->
+                            <div class="w-24 h-24 flex-shrink-0 relative">
+                                <canvas id="chart-progress"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Checklist Items -->
+                        <div class="space-y-2" id="checklist-container">
+                            <!-- JS will populate these items dynamically -->
+                        </div>
+
+                        <div class="mt-5 pt-4 border-t border-slate-200 flex justify-between">
+                            <button onclick="changeSection('tuning')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Πίσω</button>
+                            <button onclick="resetAllChecklist()" class="bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold py-2 px-4 rounded-lg transition-all">Επαναφορά Όλων</button>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- BOTTOM TAB NAVIGATION FOR MOBILE -->
+    <nav class="md:hidden bg-slate-950 border-t border-slate-800 text-slate-400 flex items-center justify-around py-2 flex-shrink-0 z-10">
+        <button onclick="changeSection('intro')" id="btn-nav-intro" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">🏠</span>
+            <span class="text-[9px] font-medium">Intro</span>
+        </button>
+        <button onclick="changeSection('precheck')" id="btn-nav-precheck" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">⚡</span>
+            <span class="text-[9px] font-medium">Pre</span>
+        </button>
+        <button onclick="changeSection('dockside')" id="btn-nav-dockside" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">⛵</span>
+            <span class="text-[9px] font-medium">Dock</span>
+        </button>
+        <button onclick="changeSection('seatrial')" id="btn-nav-seatrial" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">🌊</span>
+            <span class="text-[9px] font-medium">Sea</span>
+        </button>
+        <button onclick="changeSection('tuning')" id="btn-nav-tuning" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">⚙️</span>
+            <span class="text-[9px] font-medium">Tune</span>
+        </button>
+        <button onclick="changeSection('checklist')" id="btn-nav-checklist" class="flex flex-col items-center justify-center space-y-0.5 text-slate-500 hover:text-white transition-all w-12 py-1">
+            <span class="text-base">📋</span>
+            <span class="text-[9px] font-medium">List</span>
+        </button>
+    </nav>
+
+    <!-- LOGIC SCRIPT -->
+    <script>
+        // System Sections List
+        const sections = ['intro', 'precheck', 'dockside', 'seatrial', 'tuning', 'checklist'];
+        
+        // Navigation function
+        function changeSection(secId) {
+            sections.forEach(s => {
+                const docElement = document.getElementById('sec-' + s);
+                if (docElement) {
+                    if (s === secId) {
+                        docElement.classList.remove('hidden');
+                    } else {
+                        docElement.classList.add('hidden');
+                    }
+                }
+                
+                // Sidebar state update
+                const btnSide = document.getElementById('btn-side-' + s);
+                if (btnSide) {
+                    if (s === secId) {
+                        btnSide.classList.add('active-tab');
+                    } else {
+                        btnSide.classList.remove('active-tab');
+                    }
+                }
+
+                // Mobile Navigation bar state update
+                const btnNav = document.getElementById('btn-nav-' + s);
+                if (btnNav) {
+                    if (s === secId) {
+                        btnNav.classList.add('text-sky-400');
+                        btnNav.classList.remove('text-slate-500');
+                    } else {
+                        btnNav.classList.remove('text-sky-400');
+                        btnNav.classList.add('text-slate-500');
+                    }
+                }
+            });
+
+            // Handle specific chart refreshes on view
+            if (secId === 'tuning' && tuningChart) {
+                setTimeout(() => { tuningChart.resize(); }, 50);
+            }
+            if (secId === 'checklist' && progressChart) {
+                setTimeout(() => { progressChart.resize(); }, 50);
+            }
+        }
+
+        // ==========================================
+        // LED SIMULATOR LOGIC
+        // ==========================================
+        let ledState = {
+            fuseRemoved: false,
+            powerOn: false,
+            fuseInserted: false
+        };
+
+        function simulateLED(action) {
+            const led = document.getElementById('led-polarity');
+            const fuse = document.getElementById('led-fuse');
+            const status = document.getElementById('sim-status');
+            const btnFuse = document.getElementById('btn-fuse-step');
+            const btnPower = document.getElementById('btn-power-step');
+            const btnInsert = document.getElementById('btn-insert-step');
+
+            if (action === 'removeFuse') {
+                ledState.fuseRemoved = true;
+                fuse.innerText = "OFF";
+                fuse.className = "w-10 h-6 bg-red-950 border-2 border-red-500 rounded flex items-center justify-center font-bold text-[10px] mx-auto mb-1 text-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+                status.innerText = "Ασφάλεια 30A: Αφαιρέθηκε. Τώρα ανοίξτε τον διακόπτη.";
+                
+                // Enable next button
+                btnFuse.className = "bg-slate-700 text-slate-500 text-[10px] py-2 px-2 rounded font-medium cursor-not-allowed";
+                btnFuse.disabled = true;
+                btnPower.className = "bg-amber-600 hover:bg-amber-500 text-white text-[10px] py-2 px-2 rounded font-medium transition-all";
+                btnPower.disabled = false;
+            } 
+            else if (action === 'togglePower') {
+                ledState.powerOn = true;
+                // Light up polarity LED
+                led.className = "w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)] mx-auto mb-1 transition-all duration-300";
+                status.innerText = "Πράσινο LED: ON (Πολικότητα σωστή!). Τοποθετήστε ξανά την ασφάλεια.";
+                
+                // Enable next button
+                btnPower.className = "bg-slate-700 text-slate-500 text-[10px] py-2 px-2 rounded font-medium cursor-not-allowed";
+                btnPower.disabled = true;
+                btnInsert.className = "bg-amber-600 hover:bg-amber-500 text-white text-[10px] py-2 px-2 rounded font-medium transition-all";
+                btnInsert.disabled = false;
+            } 
+            else if (action === 'insertFuse') {
+                ledState.fuseInserted = true;
+                fuse.innerText = "30A OK";
+                fuse.className = "w-10 h-6 bg-emerald-950 border-2 border-emerald-500 rounded flex items-center justify-center font-bold text-[10px] mx-auto mb-1 text-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.5)]";
+                status.innerText = "Ηλεκτρολογικός έλεγχος επιτυχής! Το σύστημα είναι έτοιμο.";
+                
+                btnInsert.className = "bg-slate-700 text-slate-500 text-[10px] py-2 px-2 rounded font-medium cursor-not-allowed";
+                btnInsert.disabled = true;
+                
+                // Check checklist item
+                markItemComplete(1);
+            }
+        }
+
+        // ==========================================
+        // RUDDER CALIBRATION SIMULATION
+        // ==========================================
+        let rudderSteps = {
+            port: false,
+            center: false,
+            starboard: false
+        };
+
+        function calibrateRudder(position) {
+            const blade = document.getElementById('rudder-blade');
+            const angleText = document.getElementById('rudder-angle-text');
+            const status = document.getElementById('rudder-cal-status');
+
+            if (position === 'port') {
+                blade.style.transform = "rotate(-35deg)";
+                angleText.innerText = "Γωνία Τιμονιού: -35° (Αριστερά)";
+                rudderSteps.port = true;
+                status.innerText = "Καταγράφηκε: Max Port (-35°). Τώρα φέρτε το τιμόνι τέρμα δεξιά.";
+            } 
+            else if (position === 'center') {
+                blade.style.transform = "rotate(0deg)";
+                angleText.innerText = "Γωνία Τιμονιού: 0° (Κέντρο)";
+                rudderSteps.center = true;
+                status.innerText = "Καταγράφηκε: Center (0°). Τώρα φέρτε το τιμόνι τέρμα αριστερά.";
+            } 
+            else if (position === 'starboard') {
+                blade.style.transform = "rotate(35deg)";
+                angleText.innerText = "Γωνία Τιμονιού: +35° (Δεξιά)";
+                rudderSteps.starboard = true;
+                status.innerText = "Καταγράφηκε: Max Starboard (+35°).";
+            }
+
+            if (rudderSteps.port && rudderSteps.center && rudderSteps.starboard) {
+                status.innerText = "Βαθμονόμηση Τιμονιού ολοκληρώθηκε με επιτυχία!";
+                status.className = "bg-emerald-950 p-2 rounded text-[10px] text-emerald-400 font-mono border border-emerald-800";
+                markItemComplete(4);
+            }
+        }
+
+        // ==========================================
+        // COMPASS SIMULATOR LOGIC
+        // ==========================================
+        function startCompassSimulation() {
+            const dial = document.getElementById('compass-dial');
+            const status = document.getElementById('compass-status');
+            const result = document.getElementById('compass-result');
+            const btn = document.getElementById('btn-compass-sim');
+            
+            btn.disabled = true;
+            btn.innerText = "Σε εξέλιξη...";
+            btn.className = "bg-slate-700 text-slate-500 text-[10px] py-2 px-4 rounded cursor-not-allowed";
+            
+            let angle = 0;
+            const interval = setInterval(() => {
+                angle += 6;
+                dial.style.transform = `rotate(-${angle}deg)`;
+                
+                let heading = angle % 360;
+                status.innerText = `Heading: ${String(heading).padStart(3, '0')}°`;
+                result.innerText = `Περιστροφή σε εξέλιξη... ρυθμός: 2.5°/sec.`;
+                
+                if (angle >= 390) {
+                    clearInterval(interval);
+                    btn.disabled = false;
+                    btn.innerText = "Επαναλήψη Εικονικής Στροφής";
+                    btn.className = "bg-sky-600 hover:bg-sky-500 text-white text-[10px] font-bold py-2 px-4 rounded transition-all inline-block";
+                    result.innerText = "Βαθμονόμηση Επιτυχής! Απόκλιση (Deviation): 2.4° (< 5°)";
+                    result.className = "bg-emerald-950 p-2 rounded text-[10px] text-emerald-400 font-mono border border-emerald-800";
+                    markItemComplete(6);
+                }
+            }, 50);
+        }
+
+        // ==========================================
+        // CHART.JS: MANUAL TUNING EXPLORER
+        // ==========================================
+        let tuningChart;
+        const tuningData = {
+            optimal: {
+                title: "Ideal Path (Σωστός Συντονισμός)",
+                data: [0, 5, 2, 0.5, 0, 0, 0, 0, 0, 0],
+                color: "#10b981",
+                text: "<strong>Σωστή Ρύθμιση:</strong> Το σκάφος αποκλίνει ελάχιστα κατά τη στροφή και επανέρχεται γρήγορα και ομαλά στην πορεία του, χωρίς ταλαντώσεις (overshoot)."
+            },
+            under: {
+                title: "Under-Steer Path (Χαμηλό Gain)",
+                data: [0, 8, 7, 5, 3.5, 2.5, 1.5, 0.8, 0.3, 0],
+                color: "#f59e0b",
+                text: "<strong>Under-Steering (Χαμηλό Rudder Gain):</strong> Το σκάφος αργεί πολύ να αντιδράσει και εκτελεί μακρόσυρτες κινήσεις 'S' γύρω από την πορεία. <br>💡 <strong>Λύση:</strong> Αυξήστε χειροκίνητα το <em>Rudder Gain</em> κατά 2-3 μονάδες."
+            },
+            over: {
+                title: "Over-Steer Path / Hunting (Υψηλό Gain)",
+                data: [0, 6, -5, 4, -3, 2, -1, 0.5, -0.2, 0],
+                color: "#ef4444",
+                text: "<strong>Over-Steering / Hunting (Υψηλό Rudder Gain):</strong> Το σκάφος κάνει πολύ γρήγορες, νευρικές, κοφτές κινήσεις αριστερά-δεξιά. Η αντλία δουλεύει ασταμάτητα. <br>💡 <strong>Λύση:</strong> Μειώστε χειροκίνητα το <em>Rudder Gain</em>."
+            }
+        };
+
+        function initTuningChart() {
+            const ctx = document.getElementById('chart-tuning-pid').getContext('2d');
+            tuningChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['0s', '2s', '4s', '6s', '8s', '10s', '12s', '14s', '16s', '18s'],
+                    datasets: [{
+                        label: 'Απόκλιση από την Πορεία',
+                        data: tuningData.optimal.data,
+                        borderColor: tuningData.optimal.color,
+                        borderWidth: 3,
+                        pointBackgroundColor: tuningData.optimal.color,
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: -8,
+                            max: 8,
+                            grid: { color: '#e2e8f0' },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#64748b', font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function selectTuningPreset(key) {
+            const preset = tuningData[key];
+            tuningChart.data.datasets[0].data = preset.data;
+            tuningChart.data.datasets[0].borderColor = preset.color;
+            tuningChart.data.datasets[0].pointBackgroundColor = preset.color;
+            tuningChart.update();
+
+            document.getElementById('tuning-explanation').innerHTML = preset.text;
+        }
+
+        // ==========================================
+        // DYNAMIC CHECKLIST & DASHBOARD LOGIC
+        // ==========================================
+        const checklistItems = [
+            { id: 1, text: "Έλεγχος πολικότητας τροφοδοσίας (LED Simulator)", weight: 10 },
+            { id: 2, text: "Σύνδεση γείωσης σασί NAC-3", weight: 10 },
+            { id: 3, text: "NMEA 2000 σωστός τερματισμός (120 Ohm)", weight: 10 },
+            { id: 4, text: "Βαθμονόμηση ορίων Rudder Feedback", weight: 15 },
+            { id: 5, text: "Επιτυχής ολοκλήρωση Rudder Test", weight: 15 },
+            { id: 6, text: "Βαθμονόμηση Πυξίδας στη θάλασσα (Precision-9)", weight: 15 },
+            { id: 7, text: "Μηδενισμός Τιμονιού (Rudder Zero) σε ευθεία", weight: 10 },
+            { id: 8, text: "Ολοκλήρωση Autotuning & αποθήκευση PID", weight: 10 },
+            { id: 9, text: "Δοκιμή άμεσου Standby από όλα τα όργανα", weight: 5 }
+        ];
+
+        let checklistState = {};
+
+        function initChecklist() {
+            // Load state from localStorage if available
+            const savedState = localStorage.getItem('nac3_commissioning_checklist');
+            if (savedState) {
+                checklistState = JSON.parse(savedState);
+            } else {
+                checklistItems.forEach(item => {
+                    checklistState[item.id] = false;
+                });
+            }
+
+            const container = document.getElementById('checklist-container');
+            container.innerHTML = "";
+
+            checklistItems.forEach(item => {
+                const checked = checklistState[item.id] ? "checked" : "";
+                const div = document.createElement('div');
+                div.className = "flex items-start space-x-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs hover:bg-slate-100 transition-all cursor-pointer";
+                div.onclick = (e) => {
+                    // Prevent triggering double event if clicking specifically on input
+                    if (e.target.tagName !== 'INPUT') {
+                        const checkbox = div.querySelector('input');
+                        checkbox.checked = !checkbox.checked;
+                        toggleChecklistItem(item.id, checkbox.checked);
+                    }
+                };
+
+                div.innerHTML = `
+                    <input type="checkbox" id="chk-${item.id}" ${checked} 
+                           class="mt-0.5 h-4.5 w-4.5 text-sky-600 focus:ring-sky-500 border-slate-300 rounded cursor-pointer"
+                           onchange="toggleChecklistItem(${item.id}, this.checked)">
+                    <div class="flex-1">
+                        <label for="chk-${item.id}" class="font-semibold text-slate-800 block cursor-pointer">${item.text}</label>
+                        <span class="text-[10px] text-slate-400">Βαρύτητα: ${item.weight}%</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            updateProgressDashboard();
+        }
+
+        function toggleChecklistItem(id, isChecked) {
+            checklistState[id] = isChecked;
+            localStorage.setItem('nac3_commissioning_checklist', JSON.stringify(checklistState));
+            updateProgressDashboard();
+        }
+
+        function markItemComplete(id) {
+            checklistState[id] = true;
+            localStorage.setItem('nac3_commissioning_checklist', JSON.stringify(checklistState));
+            
+            // Sync with DOM checkbox
+            const checkbox = document.getElementById(`chk-${id}`);
+            if (checkbox) checkbox.checked = true;
+
+            updateProgressDashboard();
+        }
+
+        let progressChart;
+        function updateProgressDashboard() {
+            let totalProgress = 0;
+            checklistItems.forEach(item => {
+                if (checklistState[item.id]) {
+                    totalProgress += item.weight;
+                }
+            });
+
+            // Update text counters
+            document.getElementById('top-progress-text').innerText = `${totalProgress}%`;
+            document.getElementById('progress-val').innerText = `${totalProgress}%`;
+
+            const statusText = document.getElementById('progress-status');
+            if (totalProgress === 100) {
+                statusText.innerText = "Έτοιμο για παράδοση! 🎉";
+                statusText.className = "text-[11px] text-emerald-400 font-bold block";
+            } else if (totalProgress > 50) {
+                statusText.innerText = "Σε εξέλιξη (άνω του μισού)...";
+                statusText.className = "text-[11px] text-sky-400 font-semibold block";
+            } else {
+                statusText.innerText = "Απαιτούνται περισσότερα βήματα...";
+                statusText.className = "text-[11px] text-slate-300 block";
+            }
+
+            // Update Doughnut Chart
+            if (progressChart) {
+                progressChart.data.datasets[0].data = [totalProgress, 100 - totalProgress];
+                progressChart.update();
+            }
+        }
+
+        function initProgressChart() {
+            const ctx = document.getElementById('chart-progress').getContext('2d');
+            progressChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ολοκληρώθηκε', 'Υπολείπεται'],
+                    datasets: [{
+                        data: [0, 100],
+                        backgroundColor: ['#10b981', '#334155'],
+                        borderWidth: 0,
+                        cutout: '75%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                }
+            });
+        }
+
+        function resetAllChecklist() {
+            checklistItems.forEach(item => {
+                checklistState[item.id] = false;
+                const checkbox = document.getElementById(`chk-${item.id}`);
+                if (checkbox) checkbox.checked = false;
+            });
+            localStorage.removeItem('nac3_commissioning_checklist');
+            updateProgressDashboard();
+        }
+
+        // ==========================================
+        // INITIALIZATION ON DOM READY
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            // Active Home section
+            changeSection('intro');
+            
+            // Init charts and data
+            initTuningChart();
+            initProgressChart();
+            initChecklist();
+        });
+    </script>
+</body>
+</html>
