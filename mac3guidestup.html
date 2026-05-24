@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Διαδραστικός Οδηγός Ρύθμισης B&G NAC-3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f8ff; color: #1e293b; }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+
+        @media (max-width: 640px) {
+            .chart-container { height: 250px; }
+        }
+
+        .step-content { display: none; }
+        .step-content.active { display: block; animation: fadeIn 0.5s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stepper-btn { transition: all 0.3s ease; }
+        .stepper-btn.active { background-color: #0284c7; color: white; border-color: #0284c7; }
+        .stepper-btn.completed { background-color: #bae6fd; color: #0369a1; border-color: #0284c7; }
+
+        .boat-spin { transition: transform 2s ease-in-out; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Chosen Palette: Nautical Theme - Sky Blue background (#f0f8ff), Deep Sky/Ocean for primary buttons (#0284c7), Slate for text (#1e293b) to ensure calm harmony and clarity. -->
+    <!-- Application Structure Plan: A Wizard/Stepper architecture is implemented. The source report outlines a strictly sequential installation process (Pre-flight -> Dockside -> Sea Trial -> Sailing -> Operation). The SPA mirrors this logic, forcing a step-by-step progression to ensure the user understands prerequisites before moving to advanced calibrations. This chunking reduces cognitive load. -->
+    <!-- Visualization & Content Choices: 1. Pre-flight Check: Interactive Checklist (Vanilla JS) -> Goal: Organize/Inform -> Users must engage to proceed. 2. Rudder Limits: Interactive Canvas Tool (Vanilla JS Canvas) -> Goal: Inform/Change -> Users visually understand "virtual limits" vs "physical stops". 3. Sailing Wind Function: Doughnut Chart (Chart.js) -> Goal: Compare/Inform -> Visually separates AWA (<70 deg) and TWA (>=70 deg) zones. Confirmed NO SVG or Mermaid. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <header class="bg-slate-900 text-white shadow-md py-6">
+        <div class="max-w-6xl mx-auto px-4 flex items-center gap-4">
+            <div class="text-4xl">&#9973;</div>
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold">B&G NAC-3: Οδηγός Αρχικής Ρύθμισης</h1>
+                <p class="text-slate-300 text-sm mt-1">Διαδραστικό εργαλείο για ιστιοπλοϊκά σκάφη (Zeus 3S, Vulcan, Triton 2)</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-6xl mx-auto px-4 py-8 w-full flex flex-col md:flex-row gap-8">
+
+        <aside class="md:w-1/4 flex-shrink-0">
+            <div class="bg-white rounded-xl shadow-sm p-4 sticky top-4 border border-slate-200">
+                <h2 class="font-bold text-lg mb-4 text-slate-800 border-b pb-2">Βήματα Εγκατάστασης</h2>
+                <nav id="stepper-nav" class="flex flex-col gap-2">
+                    <button data-step="1" class="stepper-btn active text-left px-4 py-3 rounded-lg border-2 border-slate-200 font-medium flex justify-between items-center">
+                        <span>1. Προ-Έλεγχος</span>
+                        <span>&#128269;</span>
+                    </button>
+                    <button data-step="2" class="stepper-btn text-left px-4 py-3 rounded-lg border-2 border-slate-200 font-medium text-slate-500 flex justify-between items-center">
+                        <span>2. Στο Λιμάνι</span>
+                        <span>&#9875;</span>
+                    </button>
+                    <button data-step="3" class="stepper-btn text-left px-4 py-3 rounded-lg border-2 border-slate-200 font-medium text-slate-500 flex justify-between items-center">
+                        <span>3. Στη Θάλασσα</span>
+                        <span>&#127754;</span>
+                    </button>
+                    <button data-step="4" class="stepper-btn text-left px-4 py-3 rounded-lg border-2 border-slate-200 font-medium text-slate-500 flex justify-between items-center">
+                        <span>4. Ιστιοπλοΐα</span>
+                        <span>&#128168;</span>
+                    </button>
+                    <button data-step="5" class="stepper-btn text-left px-4 py-3 rounded-lg border-2 border-slate-200 font-medium text-slate-500 flex justify-between items-center">
+                        <span>5. Λειτουργία</span>
+                        <span>&#9888;</span>
+                    </button>
+                </nav>
+
+                <div class="mt-6 pt-4 border-t border-slate-100 text-sm text-slate-500">
+                    Πρόοδος Ρυθμίσεων: <span id="progress-text" class="font-bold text-sky-600">0%</span>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5 mt-2">
+                        <div id="progress-bar" class="bg-sky-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="md:w-3/4 bg-white rounded-xl shadow-sm p-6 md:p-8 border border-slate-200 min-h-[600px]">
+
+            <div id="step-1" class="step-content active">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                    <span class="text-sky-600">&#128269;</span> Προ-εγκαταστασιακός Έλεγχος (Pre-flight)
+                </h2>
+                <p class="text-slate-600 mb-8 text-lg border-l-4 border-sky-400 pl-4 bg-sky-50 py-2">
+                    Αυτή η ενότητα διασφαλίζει ότι το φυσικό και ηλεκτρικό δίκτυο του σκάφους είναι έτοιμο. Πριν προχωρήσετε στις ρυθμίσεις λογισμικού του NAC-3, είναι ζωτικής σημασίας να επιβεβαιώσετε τις φυσικές συνδέσεις για την αποφυγή ζημιών. Μαρκάρετε κάθε στοιχείο για να ξεκλειδώσετε το επόμενο βήμα.
+                </p>
+
+                <div class="space-y-4">
+                    <label class="flex items-start gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="preflight-check mt-1 w-5 h-5 text-sky-600 rounded">
+                        <div>
+                            <h3 class="font-bold text-slate-800">Σύνδεση Γείωσης</h3>
+                            <p class="text-sm text-slate-600">Ο εγκέφαλος NAC-3 είναι σωστά γειωμένος στο κεντρικό ground του σκάφους (αποφυγή ηλεκτρόλυσης).</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="preflight-check mt-1 w-5 h-5 text-sky-600 rounded">
+                        <div>
+                            <h3 class="font-bold text-slate-800">Συμπλέκτης (Clutch)</h3>
+                            <p class="text-sm text-slate-600">Η τάση του συμπλέκτη (12V ή 24V) έχει συνδεθεί σωστά στις αντίστοιχες κλέμες "Engage" για τα μηχανικά drive.</p>
+                        </div>
+                    </label>
+
+                    <label class="flex items-start gap-4 p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                        <input type="checkbox" class="preflight-check mt-1 w-5 h-5 text-sky-600 rounded">
+                        <div>
+                            <h3 class="font-bold text-slate-800">Τερματισμός Δικτύου NMEA 2000</h3>
+                            <p class="text-sm text-slate-600">Το δίκτυο διαθέτει ακριβώς δύο τερματικές αντιστάσεις (terminators 120 &#937;) στα άκρα του.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="mt-8 flex justify-end">
+                    <button id="btn-next-1" disabled class="bg-slate-300 text-slate-500 px-6 py-3 rounded-lg font-bold cursor-not-allowed transition-colors">
+                        Ολοκλήρωση & Συνέχεια &#10140;
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-2" class="step-content">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                    <span class="text-sky-600">&#9875;</span> Μέρος Α': Ρυθμίσεις στο Λιμάνι (Dockside)
+                </h2>
+                <p class="text-slate-600 mb-6 text-lg border-l-4 border-sky-400 pl-4 bg-sky-50 py-2">
+                    Σε αυτή την ενότητα διαμορφώνουμε τον εγκέφαλο ενώ το σκάφος είναι δεμένο με ασφάλεια (Dockside). Εδώ επιλέγουμε πηγές δεδομένων, δηλώνουμε ότι πρόκειται για ιστιοπλοϊκό, και το πιο σημαντικό: ρυθμίζουμε τα ψηφιακά όρια του τιμονιού για να προστατέψουμε το μηχανικό σύστημα. Αλληλεπιδράστε με τον προσομοιωτή τιμονιού παρακάτω για να κατανοήσετε τα όρια.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="space-y-6">
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <span class="bg-sky-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                                Πηγές & Τύπος Σκάφους
+                            </h3>
+                            <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
+                                <li>Μενού: <code class="bg-white px-1 border border-slate-200 rounded">Settings -> Network -> Sources</code></li>
+                                <li>Επιλέξτε <strong>Auto Select</strong> για αυτόματη αντιστοίχιση αισθητήρων.</li>
+                                <li>Μενού: <code class="bg-white px-1 border border-slate-200 rounded">Settings -> Autopilot -> Installation</code></li>
+                                <li>Στο Boat Type επιλέξτε αυστηρά <strong>SAIL</strong>. Αυτό αλλάζει τους αλγόριθμους PID.</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                <span class="bg-sky-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+                                Ρύθμιση Τιμονιού (Rudder Setup)
+                            </h3>
+                            <ol class="list-decimal pl-5 text-sm text-slate-600 space-y-1">
+                                <li>Φέρετε το τιμόνι στο κέντρο και πατήστε <strong>Set Rudder Zero</strong>.</li>
+                                <li>Γυρίστε τέρμα δεξιά, μειώστε κατά 2&deg;-3&deg; και θέστε το <strong>Max Limit</strong>.</li>
+                                <li>Γυρίστε τέρμα αριστερά, μειώστε 2&deg;-3&deg; και θέστε το <strong>Max Limit</strong>.</li>
+                                <li>Επιβεβαιώστε την κατεύθυνση κίνησης (Drive Direction).</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 rounded-lg p-4 text-center flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
+                        <h4 class="text-white font-bold mb-2">Προσομοιωτής Ορίων Τιμονιού</h4>
+                        <p class="text-slate-400 text-xs mb-4">Κατανοήστε τη διαφορά μεταξύ Φυσικού και Ψηφιακού Ορίου (Max Limit)</p>
+
+                        <canvas id="rudderCanvas" width="300" height="200" class="border border-slate-700 bg-slate-800 rounded mb-4"></canvas>
+
+                        <input type="range" id="rudder-slider" min="-45" max="45" value="0" class="w-full max-w-[250px] accent-sky-500">
+                        <div class="flex justify-between w-full max-w-[250px] text-xs text-slate-400 mt-1">
+                            <span>Αριστερά (Port)</span>
+                            <span id="rudder-angle-val" class="font-bold text-white">0&deg;</span>
+                            <span>Δεξιά (Starb)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button class="nav-prev bg-slate-100 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-colors">
+                        &#10094; Πίσω
+                    </button>
+                    <button class="nav-next bg-sky-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-sky-700 transition-colors shadow-md">
+                        Συνέχεια: Sea Trial &#10095;
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-3" class="step-content">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                    <span class="text-sky-600">&#127754;</span> Μέρος Β': Δοκιμές στη Θάλασσα
+                </h2>
+                <p class="text-slate-600 mb-6 text-lg border-l-4 border-sky-400 pl-4 bg-sky-50 py-2">
+                    Βγείτε σε ανοιχτή θάλασσα. Αυτή η ενότητα εξηγεί τις θεμελιώδεις ρυθμίσεις εν πλω. Χωρίς σωστή βαθμονόμηση πυξίδας, ο πιλότος θα κάνει κύκλους. Το Auto Tune επιτρέπει στο σύστημα να "μάθει" τη δυναμική (αδράνεια) του συγκεκριμένου σκάφους.
+                </p>
+
+                <div class="flex flex-col md:flex-row gap-8">
+                    <div class="flex-1 space-y-6">
+                        <div class="border-l-4 border-sky-500 pl-4">
+                            <h3 class="text-xl font-bold text-slate-800 mb-2">1. Βαθμονόμηση Πυξίδας (Precision-9)</h3>
+                            <p class="text-sm text-slate-600 mb-2">
+                                Η πυξίδα είναι το σημαντικότερο όργανο. Μεταβείτε στο <code class="text-xs bg-slate-100 px-1 rounded">Device List -> Precision-9 -> Calibrate</code>.
+                                Ξεκινήστε να στρίβετε το σκάφος κάνοντας αργούς, σταθερούς κύκλους 360&deg; με ταχύτητα 2-3 κόμβων.
+                            </p>
+                            <button id="btn-spin-boat" class="mt-2 bg-slate-800 text-white text-sm px-4 py-2 rounded hover:bg-slate-700 transition-colors">
+                                Προσομοίωση Κύκλου 360&deg;
+                            </button>
+                        </div>
+
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <h3 class="text-xl font-bold text-slate-800 mb-2">2. Αυτόματη Ρύθμιση (Auto Tune)</h3>
+                            <p class="text-sm text-slate-600">
+                                Αναπτύξτε ταχύτητα 4-5 κόμβων (μηχανή, χωρίς πανιά). Μεταβείτε στο <code class="text-xs bg-slate-100 px-1 rounded">Installation -> Sea Trial -> Auto Tune</code>.
+                                Ο πιλότος θα αναλάβει και θα κάνει S-turns. <strong>Προσοχή:</strong> Κρατηθείτε καλά και ενημερώστε το πλήρωμα! Θα ρυθμίσει αυτόματα τα <em>Rudder Gain</em> & <em>Counter Rudder</em>.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="md:w-1/3 flex items-center justify-center bg-sky-50 rounded-xl p-8 border border-sky-100 relative overflow-hidden">
+                        <div class="absolute inset-0 opacity-20 text-[10rem] flex items-center justify-center" style="font-family: monospace;">&#8853;</div>
+                        <div id="boat-icon" class="text-6xl text-sky-800 relative z-10 boat-spin filter drop-shadow-lg" style="transform: rotate(0deg);">&#9973;</div>
+                        <div id="calibration-status" class="absolute bottom-4 left-0 right-0 text-center text-sm font-bold text-sky-700 opacity-0 transition-opacity">
+                            Βαθμονόμηση Επιτυχής!
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button class="nav-prev bg-slate-100 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-colors">
+                        &#10094; Πίσω
+                    </button>
+                    <button class="nav-next bg-sky-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-sky-700 transition-colors shadow-md">
+                        Συνέχεια: Ιστιοπλοΐα &#10095;
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-4" class="step-content">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                    <span class="text-sky-600">&#128168;</span> Εξειδικευμένες Ρυθμίσεις για Ιστιοπλοΐα
+                </h2>
+                <p class="text-slate-600 mb-6 text-lg border-l-4 border-sky-400 pl-4 bg-sky-50 py-2">
+                    Εξερευνήστε τις παραμέτρους (Sailing Parameters) που αφορούν αποκλειστικά την κίνηση με πανιά. Το γράφημα απεικονίζει τη συμπεριφορά της λειτουργίας "Wind Function: Auto", δείχνοντας πώς το σύστημα εναλλάσσει τη βάση πλοήγησης (AWA vs TWA) ανάλογα με τη γωνία πλεύσης.
+                </p>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+
+                    <div class="chart-container">
+                        <canvas id="windChart"></canvas>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden text-sm">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-800 text-white">
+                                    <th class="p-3">Παράμετρος</th>
+                                    <th class="p-3">Τιμή</th>
+                                    <th class="p-3">Περιγραφή</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b hover:bg-slate-50 transition-colors">
+                                    <td class="p-3 font-bold text-slate-800">Wind Function</td>
+                                    <td class="p-3 text-sky-600 font-bold">Auto</td>
+                                    <td class="p-3 text-slate-600">Ακολουθεί AWA στα όρτσα (&lt;70&deg;) & TWA στα πρίμα (&ge;70&deg;).</td>
+                                </tr>
+                                <tr class="border-b hover:bg-slate-50 transition-colors">
+                                    <td class="p-3 font-bold text-slate-800">Tack Time</td>
+                                    <td class="p-3 text-slate-700">10-12 sec</td>
+                                    <td class="p-3 text-slate-600">Χρόνος ολοκλήρωσης τακ. Ρυθμίστε ανάλογα με τη τζένοα.</td>
+                                </tr>
+                                <tr class="border-b hover:bg-slate-50 transition-colors">
+                                    <td class="p-3 font-bold text-slate-800">Tack Angle</td>
+                                    <td class="p-3 text-slate-700">100&deg;</td>
+                                    <td class="p-3 text-slate-600">Γωνία αλλαγής στο τακ σε Heading Hold mode.</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="p-3 font-bold text-slate-800">Response</td>
+                                    <td class="p-3 text-slate-700">Level 3</td>
+                                    <td class="p-3 text-slate-600">Ευαισθησία. Lvl1 = οικονομία ρεύματος, Lvl5 = βαριά θάλασσα.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button class="nav-prev bg-slate-100 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-colors">
+                        &#10094; Πίσω
+                    </button>
+                    <button class="nav-next bg-sky-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-sky-700 transition-colors shadow-md">
+                        Συνέχεια: Λειτουργία &#10095;
+                    </button>
+                </div>
+            </div>
+
+            <div id="step-5" class="step-content">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                    <span class="text-sky-600">&#9888;</span> Λειτουργία & Ασφάλεια
+                </h2>
+                <p class="text-slate-600 mb-6 text-lg border-l-4 border-sky-400 pl-4 bg-sky-50 py-2">
+                    Η τελική ενότητα συνοψίζει τις κρίσιμες οδηγίες ασφαλείας κατά τη χρήση του NAC-3 εν πλω και την παρακολούθηση μέσω του ψηφιακού περιβάλλοντος SailSteer. Διαβάστε προσεκτικά τις προειδοποιήσεις.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-red-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
+                        <div class="text-red-500 text-4xl mb-3">&#9888;</div>
+                        <h3 class="font-bold text-red-800 text-lg mb-2">Προσοχή στο NAV Mode</h3>
+                        <p class="text-red-700 text-sm leading-relaxed">
+                            <strong>Μην αφήνετε ποτέ το τιμόνι αφύλακτο!</strong> Ειδικά όταν ταξιδεύετε με πανιά σε NAV mode (ακολουθώντας Route). Υπάρχει σοβαρός κίνδυνος ακούσιου tack/gybe λόγω ξαφνικής αλλαγής ανέμου προκειμένου ο πιλότος να μείνει στη γραμμή πορείας.
+                        </p>
+                    </div>
+
+                    <div class="bg-orange-50 border-2 border-orange-200 rounded-xl p-5 shadow-sm">
+                        <div class="text-orange-500 text-4xl mb-3">&#128308;</div>
+                        <h3 class="font-bold text-orange-800 text-lg mb-2">Κουμπί Έκτακτης Ανάγκης (Standby)</h3>
+                        <p class="text-orange-700 text-sm leading-relaxed">
+                            Έχετε πάντα διαθέσιμο ένα φυσικό πλήκτρο <strong>Standby</strong> (π.χ. AP44/48) ή ρυθμίστε το φυσικό <strong>WheelKey</strong> της οθόνης Zeus 3S να λειτουργεί ως Standby. Ο χρόνος αντίδρασης για απενεργοποίηση πρέπει να είναι άμεσος σε περίπτωση κινδύνου.
+                        </p>
+                    </div>
+
+                    <div class="bg-slate-800 md:col-span-2 rounded-xl p-6 text-white shadow-lg mt-4 flex items-center gap-6">
+                        <div class="text-5xl text-sky-400">&#128200;</div>
+                        <div>
+                            <h3 class="font-bold text-xl mb-1">Οθόνη SailSteer (Zeus 3S)</h3>
+                            <p class="text-slate-300 text-sm">
+                                Όταν ολοκληρωθούν όλα, ανοίξτε το πάνελ SailSteer. Θα βλέπετε σε πραγματικό χρόνο τη γωνία τιμονιού (Rudder), laylines και ενεργές λειτουργίες αυτόματου πιλότου άμεσα από την αριστερή πλευρά της οθόνης.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-start">
+                    <button class="nav-prev bg-slate-100 text-slate-600 px-6 py-2 rounded-lg font-bold hover:bg-slate-200 transition-colors">
+                        &#10094; Πίσω στις Ρυθμίσεις
+                    </button>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const state = {
+                currentStep: 1,
+                totalSteps: 5,
+                preflightChecked: 0
+            };
+
+            const contents = document.querySelectorAll('.step-content');
+            const navBtns = document.querySelectorAll('.stepper-btn');
+            const checkboxes = document.querySelectorAll('.preflight-check');
+            const btnNext1 = document.getElementById('btn-next-1');
+            const progressBar = document.getElementById('progressBar');
+
+            function updateView() {
+                contents.forEach((el, index) => {
+                    if (index + 1 === state.currentStep) {
+                        el.classList.add('active');
+                    } else {
+                        el.classList.remove('active');
+                    }
+                });
+
+                navBtns.forEach((btn, index) => {
+                    const stepNum = index + 1;
+                    btn.className = 'stepper-btn text-left px-4 py-3 rounded-lg border-2 font-medium flex justify-between items-center';
+
+                    if (stepNum === state.currentStep) {
+                        btn.classList.add('active');
+                    } else if (stepNum < state.currentStep || (state.currentStep === 1 && state.preflightChecked === 3 && stepNum===1)) {
+                        btn.classList.add('completed');
+                    } else {
+                        btn.classList.add('border-slate-200', 'text-slate-500');
+                    }
+                });
+
+                let progress = ((state.currentStep - 1) / (state.totalSteps - 1)) * 100;
+                if(state.currentStep === 1) progress = (state.preflightChecked / 3) * 20;
+                document.getElementById('progress-bar').style.width = `${progress}%`;
+                document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
+            }
+
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const checked = document.querySelectorAll('.preflight-check:checked').length;
+                    state.preflightChecked = checked;
+                    if (checked === 3) {
+                        btnNext1.disabled = false;
+                        btnNext1.className = 'bg-sky-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-sky-700 transition-colors shadow-md';
+                    } else {
+                        btnNext1.disabled = true;
+                        btnNext1.className = 'bg-slate-300 text-slate-500 px-6 py-3 rounded-lg font-bold cursor-not-allowed transition-colors';
+                    }
+                    updateView();
+                });
+            });
+
+            document.querySelectorAll('.nav-next').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.currentStep < state.totalSteps) {
+                        state.currentStep++;
+                        updateView();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.nav-prev').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (state.currentStep > 1) {
+                        state.currentStep--;
+                        updateView();
+                    }
+                });
+            });
+
+            btnNext1.addEventListener('click', () => {
+                state.currentStep = 2;
+                updateView();
+            });
+
+            navBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetStep = parseInt(e.currentTarget.getAttribute('data-step'));
+                    if(targetStep > 1 && state.preflightChecked < 3) {
+                        alert('Παρακαλώ ολοκληρώστε τον Προ-Έλεγχο στο Βήμα 1 πρώτα.');
+                        return;
+                    }
+                    state.currentStep = targetStep;
+                    updateView();
+                });
+            });
+
+            const canvas = document.getElementById('rudderCanvas');
+            const ctx = canvas.getContext('2d');
+            const slider = document.getElementById('rudder-slider');
+            const angleVal = document.getElementById('rudder-angle-val');
+
+            function drawRudder(angle) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                ctx.strokeStyle = '#475569';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(150, 50);
+                ctx.lineTo(150, 180);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(40, 150, 20, 20);
+                ctx.fillStyle = '#22c55e';
+                ctx.fillRect(240, 150, 20, 20);
+
+                ctx.save();
+                ctx.translate(150, 50);
+                ctx.rotate(angle * Math.PI / 180);
+
+                ctx.fillStyle = '#0ea5e9';
+                ctx.beginPath();
+                ctx.moveTo(-10, 0);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(5, 120);
+                ctx.lineTo(-5, 120);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, 5, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.restore();
+
+                let color = '#ffffff';
+                if (angle <= -40) color = '#ef4444';
+                if (angle >= 40) color = '#22c55e';
+                angleVal.style.color = color;
+            }
+
+            drawRudder(0);
+
+            slider.addEventListener('input', (e) => {
+                const angle = parseInt(e.target.value);
+                angleVal.innerText = `${angle}\u00B0`;
+                drawRudder(angle);
+            });
+
+            const btnSpin = document.getElementById('btn-spin-boat');
+            const boatIcon = document.getElementById('boat-icon');
+            const statusText = document.getElementById('calibration-status');
+            let currentRotation = 0;
+
+            btnSpin.addEventListener('click', () => {
+                currentRotation += 720;
+                boatIcon.style.transform = `rotate(${currentRotation}deg)`;
+                statusText.style.opacity = '0';
+                btnSpin.disabled = true;
+
+                setTimeout(() => {
+                    statusText.style.opacity = '1';
+                    btnSpin.disabled = false;
+                }, 2000);
+            });
+
+            const ctxChart = document.getElementById('windChart').getContext('2d');
+            new Chart(ctxChart, {
+                type: 'doughnut',
+                data: {
+                    labels: ['AWA (Apparent) Stbd', 'TWA (True) Stbd', 'TWA (True) Port', 'AWA (Apparent) Port'],
+                    datasets: [{
+                        data: [70, 110, 110, 70],
+                        backgroundColor: [
+                            'rgba(220, 38, 38, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(34, 197, 94, 0.5)',
+                            'rgba(220, 38, 38, 0.5)'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    rotation: -90,
+                    circumference: 360,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) label += ': ';
+                                    const angles = ['0-70\u00B0', '70-180\u00B0', '70-180\u00B0', '0-70\u00B0'];
+                                    label += angles[context.dataIndex];
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
